@@ -1,0 +1,269 @@
+import tkinter as tk
+from tkinter import ttk
+from PIL import Image, ImageTk
+import sqlite3
+import re  # Для работы с регулярными выражениями
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+
+#SpotifyAPI
+
+client_id = 'e16d8f6001a94307a3769d47032c818e'
+client_secret = 'dc2ef8ad02134d62ac012dc4ba38fe5d'
+
+client_credentials_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
+sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+
+
+# Цвет фона
+color1 = '#320571'
+
+# Стек фреймов
+frame_stack = []
+
+# Функция для очистки основного экрана
+def clear_main_screen():
+    login_button.pack_forget()
+    login_label.pack_forget()
+    register_button.pack_forget()
+    register_label.pack_forget()
+
+# Функция возврата назад
+def go_back():
+    while len(frame_stack) > 1:
+        current_frame = frame_stack.pop()
+        current_frame.destroy()
+
+    login_button.pack()
+    login_label.pack()
+    register_button.pack()
+    register_label.pack()
+
+# Создание таблицы пользователей в базе данных SQLite
+def create_users_table():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY,
+            username TEXT NOT NULL,
+            email TEXT NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# main_frame = tk.Frame(bg='black')
+# main_frame.place(relx=0, rely=0, relheight=1, relwidth=1)
+
+
+# Функция регистрации пользователя
+def register_user(username, email, password):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('INSERT INTO users (username, email, password) VALUES (?, ?, ?)', (username, email, password))
+    conn.commit()
+    conn.close()
+
+# Функция выполнения регистрации
+def perform_registration(username_entry, email_entry, password_entry, confirm_password_entry):
+    username = username_entry.get()
+    email = email_entry.get()
+    password = password_entry.get()
+    confirm_password = confirm_password_entry.get()
+
+    # Проверка формата адреса электронной почты с использованием регулярного выражения
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        print("Invalid email format")
+        return
+
+    if password == confirm_password:
+        register_user(username, email, password)
+        print("Registration successful!")
+        perform_registration.destroy()
+        go_back()
+    else:
+        print("Passwords do not match.")
+
+# Функция для проверки корректности email
+def is_valid_email(email):
+    # Регулярное выражение для проверки email
+    pattern = r'^\S+@\S+\.\S+$'
+    return re.match(pattern, email) is not None
+
+# Функция создания округлых кнопок
+def create_rounded_button(parent, text, command, corner_radius=10):
+    style = ttk.Style()
+    style.configure("Rounded.TButton", corner_radius=corner_radius)
+    button = ttk.Button(parent, text=text, command=command, style="Rounded.TButton")
+    return button
+
+# Функция отображения формы регистрации
+def register():
+    clear_main_screen()
+
+    register_form = tk.Frame(root, bg=color1)
+    register_form.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    # Элементы формы регистрации
+    username_label = tk.Label(register_form, text="Username:", bg=color1, fg="white")
+    username_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
+    username_entry = tk.Entry(register_form)
+    username_entry.grid(row=0, column=1, padx=10, pady=5)
+
+    email_label = tk.Label(register_form, text="Email:", bg=color1, fg="white")
+    email_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+    email_entry = tk.Entry(register_form)
+    email_entry.grid(row=1, column=1, padx=10, pady=5)
+
+    password_label = tk.Label(register_form, text="Password:", bg=color1, fg="white")
+    password_label.grid(row=2, column=0, padx=10, pady=5, sticky="w")
+    password_entry = tk.Entry(register_form, show="*")
+    password_entry.grid(row=2, column=1, padx=10, pady=5)
+
+    confirm_password_label = tk.Label(register_form, text="Confirm Password:", bg=color1, fg="white")
+    confirm_password_label.grid(row=3, column=0, padx=10, pady=5, sticky="w")
+    confirm_password_entry = tk.Entry(register_form, show="*")
+    confirm_password_entry.grid(row=3, column=1, padx=10, pady=5)
+
+    register_button = create_rounded_button(register_form, "Register", perform_registration)
+    register_button.grid(row=4, column=0, columnspan=2, pady=10)
+
+    back_button = create_rounded_button(register_form, "Back", go_back)
+    back_button.grid(row=5, column=0, columnspan=2, pady=10)
+
+    frame_stack.append(register_form)
+
+# Функция входа пользователя
+def login():
+    clear_main_screen()
+
+    login_form = tk.Frame(root, bg=color1)
+    login_form.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    username_label = tk.Label(login_form, text="Email:", bg=color1, fg="white")
+    username_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
+    username_entry = tk.Entry(login_form)
+    username_entry.grid(row=0, column=1, padx=10, pady=5)
+
+    password_label = tk.Label(login_form, text="Password:", bg=color1, fg="white")
+    password_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+    password_entry = tk.Entry(login_form, show="*")
+    password_entry.grid(row=1, column=1, padx=10, pady=5)
+
+    def perform_login():
+        email = username_entry.get()  # Получаем значение из поля ввода email
+        password = password_entry.get()
+        print("Email:", email)
+        print("Password:", password)
+
+        login_form.destroy()
+        go_back()
+
+    login_button = create_rounded_button(login_form, "Login", perform_login)
+    login_button.grid(row=2, column=0, columnspan=2, pady=10)
+
+    back_button = create_rounded_button(login_form, "Back", go_back)
+    back_button.grid(row=3, column=0, columnspan=2, pady=10)
+
+    frame_stack.append(login_form)
+
+# Функция входа по имени пользователя
+def login_by_username():
+    clear_main_screen()
+
+    login_by_username_form = tk.Frame(root, bg=color1)
+    login_by_username_form.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    username_label = tk.Label(login_by_username_form, text="Username:", bg=color1, fg="white")
+    username_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
+    username_entry = tk.Entry(login_by_username_form)
+    username_entry.grid(row=0, column=1, padx=10, pady=5)
+
+    password_label = tk.Label(login_by_username_form, text="Password:", bg=color1, fg="white")
+    password_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+    password_entry = tk.Entry(login_by_username_form, show="*")
+    password_entry.grid(row=1, column=1, padx=10, pady=5)
+
+    def perform_login_by_username():
+        username = username_entry.get()
+        password = password_entry.get()
+        print("Username:", username)
+        print("Password:", password)
+
+        login_by_username_form.destroy()
+        go_back()
+
+    login_button = create_rounded_button(login_by_username_form, "Login by Username", perform_login_by_username)
+    login_button.grid(row=2, column=0, columnspan=2, pady=10)
+
+    back_button = create_rounded_button(login_by_username_form, "Back", go_back)
+    back_button.grid(row=3, column=0, columnspan=2, pady=10)
+
+    frame_stack.append(login_by_username_form)
+
+# Функция выбора метода входа
+def select_login_method():
+    clear_main_screen()
+
+    login_method_frame = tk.Frame(root, bg=color1)
+    login_method_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    login_button = create_rounded_button(login_method_frame, "Login by Email", login)
+    login_button.pack(pady=10)
+
+    login_by_username_button = create_rounded_button(login_method_frame, "Login by Username", login_by_username)
+    login_by_username_button.pack(pady=10)
+
+    back_button = create_rounded_button(login_method_frame, "Back", go_back)
+    back_button.pack(pady=10)
+
+    frame_stack.append(login_method_frame)
+
+# Создание таблицы пользователей при запуске программы
+create_users_table()
+
+# Создание главного окна
+root = tk.Tk()
+root.title("MusicLab")
+
+# Получение размеров экрана
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+root.geometry(f"{screen_width}x{screen_height}+0+0")
+
+# Создание основного фрейма
+frame = tk.Frame(root, bg=color1)
+frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+# Загрузка и отображение логотипа
+logo_image_path = "logo.png"
+logo_image = Image.open(logo_image_path)
+logo_image_resized = logo_image.resize((160, 159))
+logo_photo = ImageTk.PhotoImage(logo_image_resized)
+
+logo_label = tk.Label(frame, image=logo_photo, bg=color1)
+logo_label.image = logo_photo
+logo_label.pack(pady=20)
+
+# Кнопки входа и регистрации
+login_button = create_rounded_button(frame, "Login", select_login_method)
+login_button.pack(pady=10)
+
+login_label = tk.Label(frame, text="Already have an account?", bg=color1, fg="grey")
+login_label.pack()
+
+register_button = create_rounded_button(frame, "Register", register)
+register_button.pack(pady=10)
+
+register_label = tk.Label(frame, text="Create an account", bg=color1, fg="grey")
+register_label.pack()
+
+# Настройка фона основного фрейма
+frame.configure(bg=color1)
+frame.place(relwidth=1, relheight=1)
+
+frame_stack.append(frame)  # Добавляем основной фрейм в стек
+
+root.mainloop()  # Запуск основного цикла программы
